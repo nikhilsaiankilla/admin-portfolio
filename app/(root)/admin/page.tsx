@@ -18,7 +18,7 @@ export default async function AdminPage() {
         const { id, ...data } = doc.data() as Skill & { id?: string };
         return { id: doc.id, ...data };
     });
-    
+
     const projectsSnapshot = await adminDatabase.collection("projects").get();
     const projects: Project[] = projectsSnapshot.docs.map(doc => {
         const { id, ...data } = doc.data() as Project & { id?: string };
@@ -39,6 +39,14 @@ export default async function AdminPage() {
 
     // console.log(resumes);
 
+    // Group skills by category
+    const skillsByCategory = skills.reduce((acc, skill) => {
+        const category = skill.category || "Other";
+        if (!acc[category]) acc[category] = [];
+        acc[category].push(skill);
+        return acc;
+    }, {} as Record<string, Skill[]>);
+
     return (
         <div className="w-full min-h-screen space-y-8 p-6 bg-white text-black">
             <div className="flex items-center justify-between flex-wrap gap-4">
@@ -47,20 +55,22 @@ export default async function AdminPage() {
             </div>
 
             {/* Skills Section */}
-            <section className="space-y-2">
+            <section className="space-y-6">
                 <h2 className="text-2xl font-semibold">Skills</h2>
-                <div>
-                    {
-                        skills.length > 0
-                            ?
+                {Object.entries(skillsByCategory).length > 0 ? (
+                    Object.entries(skillsByCategory).map(([category, skills]) => (
+                        <div key={category} className="space-y-2">
+                            <h3 className="text-xl font-semibold">{category}</h3>
                             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 border-2 border-black rounded-2xl p-4">
                                 {skills.map((skill, index) => (
                                     <SkillBox skill={skill} key={index} />
                                 ))}
                             </div>
-                            : "No Skills Found"
-                    }
-                </div>
+                        </div>
+                    ))
+                ) : (
+                    <p>No Skills Found</p>
+                )}
             </section>
 
             {/* Projects Section */}
