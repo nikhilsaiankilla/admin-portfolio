@@ -18,7 +18,7 @@ const skillSchema = z.object({
     imageFile: z.any().optional(), // optional for editing
 });
 
-const categories = ["Frontend", "Backend", "Programming Languages", "Databases", "Tools", "Cloud & DevOps"];
+const categories = ["Frontend", "Backend", "Programming Languages", "Databases", "Tools", "Cloud & DevOps", "Frameworks"];
 
 type SkillFormProps = {
     skillData?: { name: string; category: string; image: string };

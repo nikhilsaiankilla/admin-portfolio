@@ -1,4 +1,6 @@
 // app/admin/page.tsx
+export const dynamic = "force-dynamic";
+
 import ArticleBox from "@/components/ArticleBox";
 import ArticleForm from "@/components/forms/ArticleForm";
 import ProjectForm from "@/components/forms/ProjectForm";
@@ -6,9 +8,6 @@ import SkillForm from "@/components/forms/SkillForm";
 import ProjectBox from "@/components/ProjectBox";
 import SignoutBtn from "@/components/SignoutBtn";
 import SkillBox from "@/components/SkillBox";
-// import ProjectForm from "@/components/forms/ProjectForm";
-// import ArticleForm from "@/components/forms/ArticleForm";
-// import ResumeForm from "@/components/forms/ResumeForm";
 import { adminDatabase } from "@/lib/firebaseAdmin";
 import { Skill, Project, Article, Resume } from "@/types";
 
@@ -19,7 +18,7 @@ export default async function AdminPage() {
         const { id, ...data } = doc.data() as Skill & { id?: string };
         return { id: doc.id, ...data };
     });
-
+    
     const projectsSnapshot = await adminDatabase.collection("projects").get();
     const projects: Project[] = projectsSnapshot.docs.map(doc => {
         const { id, ...data } = doc.data() as Project & { id?: string };
@@ -32,11 +31,13 @@ export default async function AdminPage() {
         return { id: doc.id, ...data };
     });
 
-    const resumeSnapshot = await adminDatabase.collection("resume").get();
-    const resumes: Resume[] = resumeSnapshot.docs.map(doc => {
-        const { id, ...data } = doc.data() as Resume & { id?: string };
-        return { id: doc.id, ...data };
-    });
+    // const resumeSnapshot = await adminDatabase.collection("resume").get();
+    // const resumes: Resume[] = resumeSnapshot.docs.map(doc => {
+    //     const { id, ...data } = doc.data() as Resume & { id?: string };
+    //     return { id: doc.id, ...data };
+    // });
+
+    // console.log(resumes);
 
     return (
         <div className="w-full min-h-screen space-y-8 p-6 bg-white text-black">
@@ -93,7 +94,7 @@ export default async function AdminPage() {
             </section>
 
             {/* Resume Section */}
-            <section className="space-y-2">
+            {/* <section className="space-y-2">
                 <h2 className="text-2xl font-semibold">Resume</h2>
                 {
                     resumes?.length > 0 ? <div className="space-y-2">
@@ -104,8 +105,8 @@ export default async function AdminPage() {
                         ))}
                     </div> : "No Resume Found"
                 }
-                {/* <ResumeForm /> */}
-            </section>
+                <ResumeForm />
+            </section> */}
 
             <section className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div className="flex items-center flex-col gap-5">
