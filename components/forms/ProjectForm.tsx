@@ -17,14 +17,15 @@ import MDEditor from "@uiw/react-md-editor";
 import { Label } from "../ui/label";
 import Image from "next/image";
 
+// ✅ fixed schema — allows empty URL strings
 const projectSchema = z.object({
     title: z.string().min(1, "Title is required"),
     problem: z.string().min(1, "Problem is required"),
     description: z.string().min(1, "Description is required"),
     skills: z.array(z.string()).optional(),
     imageFile: z.any().optional(),
-    githubUrl: z.string().url().optional(),
-    demoUrl: z.string().url().optional(),
+    githubUrl: z.string().url().or(z.literal("")).optional(),
+    demoUrl: z.string().url().or(z.literal("")).optional(),
     tagline: z.string().optional(),
 });
 
@@ -39,7 +40,6 @@ export default function ProjectForm({ projectData, projectId }: ProjectFormProps
     const [message, setMessage] = useState("");
     const [preview, setPreview] = useState(projectData?.image || "");
     const [allSkills, setAllSkills] = useState<Skill[]>([]);
-    const [description, setDescription] = useState<string>(projectData?.description || "");
 
     const form = useForm({
         resolver: zodResolver(projectSchema),
@@ -63,7 +63,6 @@ export default function ProjectForm({ projectData, projectId }: ProjectFormProps
         fetchData();
     }, []);
 
-    // Keep preview updated when projectData changes
     useEffect(() => {
         if (projectData?.image) setPreview(projectData.image);
     }, [projectData]);
@@ -77,11 +76,12 @@ export default function ProjectForm({ projectData, projectId }: ProjectFormProps
     async function handleSubmit(values: z.infer<typeof projectSchema>) {
         setLoading(true);
         setMessage("");
+
         try {
             const formData = new FormData();
             formData.append("title", values.title);
             formData.append("problem", values.problem);
-            formData.append("description", description);
+            formData.append("description", values.description);
             formData.append("skills", JSON.stringify(values.skills || []));
             formData.append("githubUrl", values.githubUrl || "");
             formData.append("demoUrl", values.demoUrl || "");
@@ -98,8 +98,7 @@ export default function ProjectForm({ projectData, projectId }: ProjectFormProps
 
             if (result.success) {
                 setMessage(projectId ? "Project updated!" : "Project added!");
-                setDescription("")
-                setPreview("")
+                setPreview("");
                 form.reset();
                 router.refresh();
             } else {
@@ -115,7 +114,6 @@ export default function ProjectForm({ projectData, projectId }: ProjectFormProps
 
     return (
         <Card className="w-full max-w-5xl rounded-xl border border-black shadow-lg mx-auto">
-
             <CardHeader className="py-3">
                 <CardTitle className="text-center text-2xl font-bold text-black">
                     {projectId ? "Edit Project" : "Add New Project"}
@@ -133,13 +131,19 @@ export default function ProjectForm({ projectData, projectId }: ProjectFormProps
                         {...form.register("problem")}
                         className="border-black text-black placeholder-black focus:ring-black focus:border-black"
                     />
+
                     <div className="grid gap-2">
                         <Label htmlFor="description">Description (Markdown)</Label>
-                        <div data-color-mode="light" className="border border-gray-300 dark:border-gray-700 rounded-lg overflow-hidden">
+                        <div
+                            data-color-mode="light"
+                            className="border border-gray-300 dark:border-gray-700 rounded-lg overflow-hidden"
+                        >
                             <MDEditor
-                                value={description}
-                                onChange={(val) => setDescription(val || "")}
-                                preview="live" // 👈 Show rendered markdown live
+                                value={form.watch("description")}
+                                onChange={(e) => {
+                                    form.setValue("description", e || "", { shouldValidate: true });
+                                }}
+                                preview="live"
                                 height={300}
                                 className="!bg-transparent"
                                 style={{
@@ -158,12 +162,11 @@ export default function ProjectForm({ projectData, projectId }: ProjectFormProps
                         </div>
                     </div>
 
-
                     {/* Skills */}
                     <div>
                         <label className="block mb-1 font-semibold">Skills</label>
                         <div className="flex flex-wrap gap-2">
-                            {allSkills.map(skill => (
+                            {allSkills.map((skill) => (
                                 <label
                                     key={skill.id}
                                     className="flex items-center gap-1 border px-2 py-1 rounded cursor-pointer select-none"
@@ -180,12 +183,13 @@ export default function ProjectForm({ projectData, projectId }: ProjectFormProps
                         </div>
                     </div>
 
-                    {/* Image */}
+                    {/* Image upload */}
                     <input
                         type="file"
                         accept="image/*"
-                        {...form.register("imageFile")}
-                        onChange={handleFileChange}
+                        {...form.register("imageFile", {
+                            onChange: (e) => handleFileChange(e),
+                        })}
                         className="border border-black p-2 rounded-md w-full"
                     />
                     {preview && (
@@ -217,7 +221,7 @@ export default function ProjectForm({ projectData, projectId }: ProjectFormProps
 
                     <Button
                         type="submit"
-                        className="w-full border border-black bg-white text-black font-semibold py-3 rounded-md hover:bg-black hover:text-white transition flex justify-center items-center gap-2"
+                        className="w-full border border-black bg-white text-black font-semibold py-3 rounded-md hover:bg-black hover:text-white transition flex justify-center cursor-pointer items-center gap-2"
                     >
                         {loading ? (
                             <>
@@ -230,6 +234,7 @@ export default function ProjectForm({ projectData, projectId }: ProjectFormProps
                         )}
                     </Button>
                 </form>
+
                 {message && (
                     <p className="text-center text-green-700 font-semibold mt-2">{message}</p>
                 )}

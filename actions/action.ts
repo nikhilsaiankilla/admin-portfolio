@@ -39,36 +39,39 @@ export async function userSignOut() {
 
 export async function addOrUpdateSkill(formData: FormData, skillId?: string) {
     try {
+        // --- Authentication ---
         const cookieStore = await cookies();
         const tokenCookie = cookieStore.get('token');
         const token = tokenCookie?.value;
-        if (!token) {
-            throw new Error("Unauthorized: No token found");
-        }
+        if (!token) throw new Error("Unauthorized: No token found");
 
         const decoded = await adminAuth.verifySessionCookie(token, true);
         if (decoded.email !== "nikhilsaiankilla@gmail.com") {
             throw new Error("Unauthorized: Invalid user");
         }
 
-        // Extract fields and file from FormData
+        // --- Extract fields ---
         const name = formData.get("name")?.toString() || "";
         const category = formData.get("category")?.toString() || "";
+        const existingImage = formData.get("existingImage")?.toString() || "";
         const imageFile = formData.get("image") as File | null;
 
-        if (!name || !category) {
-            throw new Error("Name and category are required");
-        }
+        if (!name || !category) throw new Error("Name and category are required");
 
-        let imageUrl = "";
+        // --- Upload new image if provided ---
+        let imageUrl = existingImage;
+        let oldImagePublicId: string | null = null;
 
         if (imageFile) {
-            // Convert File to Buffer to upload to Cloudinary
-            const arrayBuffer = await imageFile.arrayBuffer();
-            const buffer = Buffer.from(arrayBuffer);
+            // Extract Cloudinary public_id from existing image URL
+            if (existingImage) {
+                const match = existingImage.match(/\/portfolio\/skills\/([^/.]+)/);
+                if (match) oldImagePublicId = `portfolio/skills/${match[1]}`;
+            }
 
-            // Use a readable stream for Cloudinary
+            const buffer = Buffer.from(await imageFile.arrayBuffer());
             const stream = Readable.from(buffer);
+
             const result = await new Promise<{ secure_url: string }>((resolve, reject) => {
                 const uploadStream = cloudinary.v2.uploader.upload_stream(
                     { folder: "portfolio/skills" },
@@ -81,8 +84,17 @@ export async function addOrUpdateSkill(formData: FormData, skillId?: string) {
             });
 
             imageUrl = result.secure_url;
+
+            // Delete old image after successful upload
+            if (oldImagePublicId) {
+                cloudinary.v2.uploader.destroy(oldImagePublicId, (error, result) => {
+                    if (error) console.error("❌ Failed to delete old skill image:", error);
+                    else console.log("🧹 Old skill image deleted:", result);
+                });
+            }
         }
 
+        // --- Build skill data ---
         const skillData = {
             name,
             category,
@@ -132,6 +144,21 @@ export async function deleteSkill(id: string) {
 
         if (!skillref) {
             return { success: false, message: 'Skill not found' };
+        }
+
+        const docSnap = await skillref.get();
+        const skillData = docSnap.data();
+
+        // --- Delete old image from Cloudinary if exists ---
+        if (skillData?.image) {
+            const match = skillData.image.match(/\/portfolio\/skills\/([^/.]+)/);
+            if (match) {
+                const publicId = `portfolio/skills/${match[1]}`;
+                cloudinary.v2.uploader.destroy(publicId, (error, result) => {
+                    if (error) console.error("❌ Failed to delete Cloudinary image:", error);
+                    else console.log("🧹 Cloudinary image deleted:", result);
+                });
+            }
         }
 
         await skillref.delete();
@@ -187,10 +214,19 @@ export async function addOrUpdateProject(formData: FormData, projectId?: string)
         }
 
         // --- Upload new image if provided ---
-        let imageUrl = existingImage; // keep existing image if no new file
+        let imageUrl = existingImage;
+        let oldImagePublicId: string | null = null;
+
         if (imageFile) {
+            // Extract public_id from existing image URL (if any)
+            if (existingImage) {
+                const match = existingImage.match(/\/portfolio\/projects\/([^/.]+)/);
+                if (match) oldImagePublicId = `portfolio/projects/${match[1]}`;
+            }
+
             const buffer = Buffer.from(await imageFile.arrayBuffer());
             const stream = Readable.from(buffer);
+
             const result = await new Promise<{ secure_url: string }>((resolve, reject) => {
                 const uploadStream = cloudinary.v2.uploader.upload_stream(
                     { folder: "portfolio/projects" },
@@ -201,9 +237,19 @@ export async function addOrUpdateProject(formData: FormData, projectId?: string)
                 );
                 stream.pipe(uploadStream);
             });
+
             imageUrl = result.secure_url;
+
+            // Delete old image after successful upload
+            if (oldImagePublicId) {
+                cloudinary.v2.uploader.destroy(oldImagePublicId, (error, result) => {
+                    if (error) console.error("❌ Failed to delete old image:", error);
+                    else console.log("🧹 Old image deleted:", result);
+                });
+            }
         }
 
+        // --- Prepare project data ---
         const projectData = {
             title,
             problem,
@@ -218,11 +264,9 @@ export async function addOrUpdateProject(formData: FormData, projectId?: string)
 
         let docRef;
         if (projectId) {
-            // Update existing project
             docRef = adminDatabase.collection("projects").doc(projectId);
             await docRef.update(projectData);
         } else {
-            // Add new project
             docRef = await adminDatabase.collection("projects").add({
                 ...projectData,
                 createdAt: Date.now(),
@@ -260,6 +304,21 @@ export async function deleteProject(id: string) {
             return { success: false, message: 'Project not found' };
         }
 
+        const docSnap = await projectref.get();
+        const skillData = docSnap.data();
+
+        // --- Delete old image from Cloudinary if exists ---
+        if (skillData?.image) {
+            const match = skillData.image.match(/\/portfolio\/skills\/([^/.]+)/);
+            if (match) {
+                const publicId = `portfolio/projects/${match[1]}`;
+                cloudinary.v2.uploader.destroy(publicId, (error, result) => {
+                    if (error) console.error("❌ Failed to delete Cloudinary image:", error);
+                    else console.log("🧹 Cloudinary image deleted:", result);
+                });
+            }
+        }
+
         await projectref.delete();
 
         return { success: true, message: 'Project Deleted successfully' };
@@ -287,18 +346,27 @@ export async function addOrUpdateArticle(formData: FormData, articleId?: string)
         const tagline = formData.get("tagline")?.toString() || "";
         const existingImage = formData.get("existingImage")?.toString() || "";
         const imageFile = formData.get("image") as File | null;
-        const description = formData.get('description')?.toString() || "";
+        const description = formData.get("description")?.toString() || "";
 
         if (!title) throw new Error("Title is required");
 
         // --- Upload new image if provided ---
         let imageUrl = existingImage;
+        let oldImagePublicId: string | null = null;
+
         if (imageFile) {
+            // Extract public_id from existing image URL
+            if (existingImage) {
+                const match = existingImage.match(/\/portfolio\/articles\/([^/.]+)/);
+                if (match) oldImagePublicId = `portfolio/articles/${match[1]}`;
+            }
+
             const buffer = Buffer.from(await imageFile.arrayBuffer());
             const stream = Readable.from(buffer);
+
             const result = await new Promise<{ secure_url: string }>((resolve, reject) => {
                 const uploadStream = cloudinary.v2.uploader.upload_stream(
-                    { folder: "portfolio/articles" }, // 👈 different folder for articles
+                    { folder: "portfolio/articles" },
                     (error, result) => {
                         if (error) reject(error);
                         else resolve(result as any);
@@ -306,9 +374,19 @@ export async function addOrUpdateArticle(formData: FormData, articleId?: string)
                 );
                 stream.pipe(uploadStream);
             });
+
             imageUrl = result.secure_url;
+
+            // Delete old image after successful upload
+            if (oldImagePublicId) {
+                cloudinary.v2.uploader.destroy(oldImagePublicId, (error, result) => {
+                    if (error) console.error("❌ Failed to delete old image:", error);
+                    else console.log("🧹 Old image deleted:", result);
+                });
+            }
         }
 
+        // --- Build article data ---
         const articleData = {
             title,
             tagline,
@@ -359,6 +437,21 @@ export async function deleteArticle(id: string) {
 
         if (!projectref) {
             return { success: false, message: 'article not found' };
+        }
+
+        const docSnap = await projectref.get();
+        const skillData = docSnap.data();
+
+        // --- Delete old image from Cloudinary if exists ---
+        if (skillData?.image) {
+            const match = skillData.image.match(/\/portfolio\/skills\/([^/.]+)/);
+            if (match) {
+                const publicId = `portfolio/articles/${match[1]}`;
+                cloudinary.v2.uploader.destroy(publicId, (error, result) => {
+                    if (error) console.error("❌ Failed to delete Cloudinary image:", error);
+                    else console.log("🧹 Cloudinary image deleted:", result);
+                });
+            }
         }
 
         await projectref.delete();

@@ -93,12 +93,12 @@ const ProjectBox = ({ project, onDeleted }: ProjectBoxProps) => {
                 </div>
 
                 <div className="flex gap-2 mt-2">
-                    <Button onClick={() => setOpen(true)} className="border border-black hover:bg-black hover:text-white transition">
+                    <Button onClick={() => setOpen(true)} className="border cursor-pointer border-black hover:bg-black hover:text-white transition">
                         <Pencil size={8} />
                     </Button>
                     <Button
                         onClick={handleDelete}
-                        className="border border-black hover:bg-red-600 hover:text-white transition flex items-center gap-2"
+                        className="border cursor-pointer border-black hover:bg-red-600 hover:text-white transition flex items-center gap-2"
                         disabled={loading}
                     >
                         {loading && <Loader className="animate-spin h-2 w-2" />}
@@ -108,7 +108,7 @@ const ProjectBox = ({ project, onDeleted }: ProjectBoxProps) => {
             </div>
 
             <Dialog open={open} onOpenChange={setOpen}>
-                <DialogContent className="w-full max-w-5xl max-h-[90vh] flex flex-col">
+                <DialogContent className="w-full !max-w-5xl max-h-[90vh] flex flex-col">
                     <DialogHeader>
                         <DialogTitle>Edit project</DialogTitle>
                     </DialogHeader>
