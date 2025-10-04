@@ -4,12 +4,14 @@ export const dynamic = "force-dynamic";
 import ArticleBox from "@/components/ArticleBox";
 import ArticleForm from "@/components/forms/ArticleForm";
 import ProjectForm from "@/components/forms/ProjectForm";
+import ResumeUploadForm from "@/components/forms/ResumeUploadForm";
 import SkillForm from "@/components/forms/SkillForm";
 import ProjectBox from "@/components/ProjectBox";
 import SignoutBtn from "@/components/SignoutBtn";
 import SkillBox from "@/components/SkillBox";
 import { adminDatabase } from "@/lib/firebaseAdmin";
 import { Skill, Project, Article, Resume } from "@/types";
+import Link from "next/link";
 
 export default async function AdminPage() {
     // Fetch data directly from Firestore
@@ -31,13 +33,11 @@ export default async function AdminPage() {
         return { id: doc.id, ...data };
     });
 
-    // const resumeSnapshot = await adminDatabase.collection("resume").get();
-    // const resumes: Resume[] = resumeSnapshot.docs.map(doc => {
-    //     const { id, ...data } = doc.data() as Resume & { id?: string };
-    //     return { id: doc.id, ...data };
-    // });
-
-    // console.log(resumes);
+    const resumeSnapshot = await adminDatabase.collection("resume").get();
+    const resumes: Resume[] = resumeSnapshot.docs.map(doc => {
+        const { id, ...data } = doc.data() as Resume & { id?: string };
+        return { id: doc.id, ...data };
+    });
 
     // Group skills by category
     const skillsByCategory = skills.reduce((acc, skill) => {
@@ -104,19 +104,21 @@ export default async function AdminPage() {
             </section>
 
             {/* Resume Section */}
-            {/* <section className="space-y-2">
+            <section className="space-y-2">
                 <h2 className="text-2xl font-semibold">Resume</h2>
                 {
                     resumes?.length > 0 ? <div className="space-y-2">
                         {resumes.map(resume => (
-                            <div key={resume.id} className="p-4 border border-black rounded-md">
-                                <a href={resume.fileUrl} target="_blank" className="text-blue-600 underline">{resume.title}</a>
-                            </div>
+                            <>
+                                <div key={resume.id} className="p-4 border border-black rounded-md">
+                                    <Link href={resume.url} target="_blank" className="text-blue-600 underline">Latest Resume</Link>
+                                </div>
+                            </>
                         ))}
                     </div> : "No Resume Found"
                 }
-                <ResumeForm />
-            </section> */}
+                <ResumeUploadForm />
+            </section>
 
             <section className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div className="flex items-center flex-col gap-5">

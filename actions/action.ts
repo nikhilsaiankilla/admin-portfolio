@@ -12,6 +12,89 @@ cloudinary.v2.config({
     api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
+export async function addOrUpdateResume(formData: FormData) {
+    try {
+        // --- Authentication ---
+        const cookieStore = await cookies();
+        const tokenCookie = cookieStore.get('token');
+        const token = tokenCookie?.value;
+        if (!token) throw new Error("Unauthorized: No token found");
+
+        const decoded = await adminAuth.verifySessionCookie(token, true);
+        if (decoded.email !== "nikhilsaiankilla@gmail.com") {
+            throw new Error("Unauthorized: Invalid user");
+        }
+
+        // --- Extract file from FormData ---
+        const resumeFile = formData.get("resume") as File | null;
+        if (!resumeFile) throw new Error("No resume file provided");
+
+        // --- Check if a resume already exists ---
+        const resumeCollection = adminDatabase.collection("resume");
+        const existingDocs = await resumeCollection.get();
+        let oldResumeUrl: string | null = null;
+        let docId: string | null = null;
+
+        if (!existingDocs.empty) {
+            const doc = existingDocs.docs[0];
+            oldResumeUrl = doc.data().url || null;
+            docId = doc.id;
+        }
+
+        // --- Delete old resume from Cloudinary if exists ---
+        if (oldResumeUrl) {
+            const match = oldResumeUrl.match(/\/portfolio\/resume\/([^/.]+)/);
+            if (match) {
+                const publicId = `portfolio/resume/${match[1]}`;
+                cloudinary.v2.uploader.destroy(publicId, (err, result) => {
+                    if (err) console.error("Failed to delete old resume:", err);
+                    else console.log("Old resume deleted:", result);
+                });
+            }
+        }
+
+        // --- Upload new resume ---
+        const buffer = Buffer.from(await resumeFile.arrayBuffer());
+        const stream = Readable.from(buffer);
+
+        const result = await new Promise<{ secure_url: string }>((resolve, reject) => {
+            const uploadStream = cloudinary.v2.uploader.upload_stream(
+                {
+                    folder: "portfolio/resume",
+                    resource_type: "image", // <-- Use 'image'
+                    format: "pdf"
+                }, (error, result) => {
+                    if (error) reject(error);
+                    // Cloudinary's result object will now be available here
+                    else resolve(result as any);
+                }
+            );
+            stream.pipe(uploadStream);
+        });
+        // The result.secure_url should now contain the .pdf extension.
+
+        const resumeUrl = result.secure_url;
+
+        // --- Save/update Firestore ---
+        if (docId) {
+            await resumeCollection.doc(docId).update({
+                url: resumeUrl,
+                updatedAt: Date.now(),
+            });
+        } else {
+            await resumeCollection.add({
+                url: resumeUrl,
+                createdAt: Date.now(),
+            });
+        }
+
+        return { success: true, url: resumeUrl };
+    } catch (err: unknown) {
+        console.error(err);
+        return { success: false, message: (err as Error).message };
+    }
+}
+
 export async function userSignOut() {
     try {
         // Access the cookie store

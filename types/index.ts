@@ -34,8 +34,7 @@ export type Article = {
 
 export type Resume = {
     id: string;
-    title: string;
-    fileUrl: string;
+    url: string;
     createdAt?: number;
     updatedAt?: number;
 };
